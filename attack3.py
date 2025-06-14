@@ -2,8 +2,8 @@ import pygame
 import serial
 import time
 
-# Konfiguracja portu Bluetooth dla Windows 11 (zmień COM jeśli potrzeba)
-BT_PORT = "COM18"  # Port COM przypisany do HC-06 w Menedżerze urządzeń
+# Konfiguracja portu Bluetooth (zmień na właściwy port dla HC-06)
+BT_PORT = "/dev/rfcomm1"  # Musisz wcześniej sparować HC-06 i przypisać port szeregowy
 BAUDRATE = 115200
 
 # Inicjalizacja Bluetooth
@@ -27,6 +27,7 @@ joystick.init()
 
 print(f"Wykryto joystick: {joystick.get_name()}")
 
+
 def get_percentage(value, deadzone=0.15):
     """
     Przekształca wartość z zakresu -1.0 do 1.0 na 0–99 z martwą strefą.
@@ -36,27 +37,17 @@ def get_percentage(value, deadzone=0.15):
         return 0
     return int(min(max(abs(value) * 99, 0), 99))
 
-def get_direction(value, axis_type, last_dir):
+
+def get_direction(value, axis_type):
     if axis_type == "forward":
-        if value < -0.2:
-            return "F"
-        elif value > 0.2:
-            return "B"
-        else:
-            return last_dir
+        return "F" if value < -0.2 else "B" if value > 0.2 else "F"
     if axis_type == "turn":
-        if value < -0.2:
-            return "L"
-        elif value > 0.2:
-            return "R"
-        else:
-            return last_dir
+        return "L" if value < -0.2 else "R" if value > 0.2 else "L"
+
 
 def format_frame(fb, fb_val, lr, lr_val):
     return f"{fb}{fb_val:02}{lr}{lr_val:02}"
 
-last_fb_dir = "F"
-last_lr_dir = "L"
 
 try:
     while True:
@@ -65,15 +56,10 @@ try:
         axis_y = joystick.get_axis(1)  # Oś przód/tył
         axis_x = joystick.get_axis(0)  # Oś lewo/prawo
 
+        fb_dir = get_direction(axis_y, "forward")
         fb_pct = get_percentage(axis_y, deadzone=0.15)
-        fb_dir = get_direction(axis_y, "forward", last_fb_dir)
-        if fb_pct != 0:
-            last_fb_dir = fb_dir
-
-        lr_pct = get_percentage(axis_x, deadzone=0.30)
-        lr_dir = get_direction(axis_x, "turn", last_lr_dir)
-        if lr_pct != 0:
-            last_lr_dir = lr_dir
+        lr_dir = get_direction(axis_x, "turn")
+        lr_pct = get_percentage(axis_x, deadzone=0.25)
 
         frame = format_frame(fb_dir, fb_pct, lr_dir, lr_pct)
         print(f"Wysyłanie: {frame}")
