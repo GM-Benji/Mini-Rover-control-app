@@ -3,7 +3,7 @@ import serial
 import time
 
 # Konfiguracja portu Bluetooth dla Windows 11 (zmień COM jeśli potrzeba)
-BT_PORT = "COM18"  # Port COM przypisany do HC-06 w Menedżerze urządzeń
+BT_PORT = "COM9"  # Port COM przypisany do HC-06 w Menedżerze urządzeń
 BAUDRATE = 115200
 
 # Inicjalizacja Bluetooth
