@@ -3,7 +3,7 @@ import serial
 import time
 
 # Konfiguracja portu Bluetooth
-BT_PORT = "COM18"
+BT_PORT = "COM9"
 BAUDRATE = 115200
 
 # Inicjalizacja Bluetooth
