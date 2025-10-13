@@ -32,34 +32,44 @@ def axis_to_speed(value, deadzone=0.15):
         return 0
     return int(max(min(value * 250, 250), -250))
 
-# Tworzenie ramki 8-bajtowej
 def format_frame(left_speed, right_speed):
-    left_sign = '0' if left_speed >= 0 else '1'
-    right_sign = '0' if right_speed >= 0 else '1'
+    # Określenie bajtu znaków:
+    # 0 = obie dodatnie
+    # 1 = lewa ujemna
+    # 2 = prawa ujemna
+    # 3 = obie ujemne
+    if left_speed < 0 and right_speed < 0:
+        sign_byte = 3
+    elif left_speed < 0:
+        sign_byte = 1
+    elif right_speed < 0:
+        sign_byte = 2
+    else:
+        sign_byte = 0
 
+    # Zamiana wartości na dodatnie (0–250)
     l_val = abs(left_speed)
     r_val = abs(right_speed)
 
-    l_str = f"{l_val:03}"
-    r_str = f"{r_val:03}"
-
-    return (l_str + r_str + left_sign + right_sign).encode('ascii')
-
+    # Ramka 3-bajtowa: [lewa prędkość, prawa prędkość, bajt znaków]
+    frame = bytearray([l_val, r_val, sign_byte])
+    return frame
 # Główna pętla
 try:
     while True:
         pygame.event.pump()
 
-        # Uwaga: w kontrolerach Xbox:
+        # W kontrolerze Xbox:
         # oś 1 = lewa gałka Y (odwrócona: -1 = przód, 1 = tył)
         # oś 4 = prawa gałka Y (odwrócona: -1 = przód, 1 = tył)
-        axis_left_y = -joystick.get_axis(1)   # lewa prędkość
-        axis_right_y = -joystick.get_axis(3)  # prawa prędkość
+        axis_left_y = -joystick.get_axis(1)
+        axis_right_y = -joystick.get_axis(3)
 
         left_speed = axis_to_speed(axis_left_y)
         right_speed = axis_to_speed(axis_right_y)
 
         frame = format_frame(left_speed, right_speed)
+
         print(f"L: {left_speed:4}  R: {right_speed:4}  -> {frame.decode()}")
         bt.write(frame)
 
