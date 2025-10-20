@@ -1,6 +1,9 @@
 import pygame
 import serial
 import time
+import struct
+import matplotlib.pyplot as plt
+import numpy as np
 
 # Konfiguracja portu Bluetooth
 BT_PORT = "COM9"   # zmień jeśli inny port
@@ -8,7 +11,7 @@ BAUDRATE = 115200
 
 # Inicjalizacja połączenia Bluetooth
 try:
-    bt = serial.Serial(BT_PORT, BAUDRATE, timeout=1)
+    bt = serial.Serial(BT_PORT, BAUDRATE, timeout=0.05)
     print(f"✅ Połączono z HC-06 na {BT_PORT}")
 except serial.SerialException as e:
     print(f"❌ Błąd połączenia: {e}")
@@ -32,12 +35,8 @@ def axis_to_speed(value, deadzone=0.15):
         return 0
     return int(max(min(value * 250, 250), -250))
 
+# Tworzenie 3-bajtowej ramki do wysyłania
 def format_frame(left_speed, right_speed):
-    # Określenie bajtu znaków:
-    # 0 = obie dodatnie
-    # 1 = lewa ujemna
-    # 2 = prawa ujemna
-    # 3 = obie ujemne
     if left_speed < 0 and right_speed < 0:
         sign_byte = 3
     elif left_speed < 0:
@@ -46,22 +45,42 @@ def format_frame(left_speed, right_speed):
         sign_byte = 2
     else:
         sign_byte = 0
-
-    # Zamiana wartości na dodatnie (0–250)
     l_val = abs(left_speed)
     r_val = abs(right_speed)
-
-    # Ramka 3-bajtowa: [lewa prędkość, prawa prędkość, bajt znaków]
     frame = bytearray([l_val, r_val, sign_byte])
     return frame
+
+# Inicjalizacja wykresów
+plt.ion()
+fig, (axA, axB) = plt.subplots(2, 1, figsize=(8, 6))
+
+axA.set_title("Silnik A")
+axA.set_xlabel("Czas [s]")
+axA.set_ylabel("Prędkość")
+lineA_meas, = axA.plot([], [], label="Measured Speed", color="tab:blue")
+lineA_set, = axA.plot([], [], label="Set Speed", color="tab:orange")
+axA.legend()
+axA.grid(True)
+
+axB.set_title("Silnik B")
+axB.set_xlabel("Czas [s]")
+axB.set_ylabel("Prędkość")
+lineB_meas, = axB.plot([], [], label="Measured Speed", color="tab:green")
+lineB_set, = axB.plot([], [], label="Set Speed", color="tab:red")
+axB.legend()
+axB.grid(True)
+
+# Bufory danych
+times = []
+A_meas, A_set, B_meas, B_set = [], [], [], []
+start_time = time.time()
+
 # Główna pętla
 try:
     while True:
         pygame.event.pump()
 
-        # W kontrolerze Xbox:
-        # oś 1 = lewa gałka Y (odwrócona: -1 = przód, 1 = tył)
-        # oś 4 = prawa gałka Y (odwrócona: -1 = przód, 1 = tył)
+        # Sterowanie joystickiem
         axis_left_y = -joystick.get_axis(1)
         axis_right_y = -joystick.get_axis(3)
 
@@ -69,14 +88,41 @@ try:
         right_speed = axis_to_speed(axis_right_y)
 
         frame = format_frame(left_speed, right_speed)
-
-        print(f"L: {left_speed:4}  R: {right_speed:4}  -> {frame.decode()}")
         bt.write(frame)
+
+        # Próba odczytu ramki 16 bajtów
+        if bt.in_waiting >= 16:
+            data = bt.read(16)
+            if len(data) == 16:
+                # Odczytaj 4 int32 (małe endian)
+                values = struct.unpack("<4i", data)
+                measA, setA, measB, setB = values
+
+                current_time = time.time() - start_time
+                times.append(current_time)
+                A_meas.append(measA)
+                A_set.append(setA)
+                B_meas.append(measB)
+                B_set.append(setB)
+
+                # Aktualizacja wykresów
+                lineA_meas.set_data(times, A_meas)
+                lineA_set.set_data(times, A_set)
+                lineB_meas.set_data(times, B_meas)
+                lineB_set.set_data(times, B_set)
+
+                axA.relim(); axA.autoscale_view()
+                axB.relim(); axB.autoscale_view()
+                plt.pause(0.001)
+
+                print(f"A: meas={measA:6d}, set={setA:6d} | B: meas={measB:6d}, set={setB:6d}")
 
         time.sleep(0.02)
 
 except KeyboardInterrupt:
-    print("🛑 Zamykanie...")
+    print("\n🛑 Zamykanie...")
 finally:
     bt.close()
     pygame.quit()
+    plt.ioff()
+    plt.show()
