@@ -2,18 +2,14 @@ import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 import queue
 
-# Globalne
 xdata, ydata = [], []
 line = None
 point = None
 data_queue = queue.Queue()
+fig = None
 
-def init_plot(x_range=(-10, 10), y_range=(-10, 10)):
-    """
-    Tworzy i uruchamia wykres, który sam się aktualizuje,
-    gdy do kolejki dodane są nowe punkty.
-    """
-    global line, point
+def init_plot(x_range=(-1000, 1000), y_range=(-1000, 1000)):
+    global line, point, fig
 
     fig, ax = plt.subplots()
     ax.set_xlim(*x_range)
@@ -27,26 +23,17 @@ def init_plot(x_range=(-10, 10), y_range=(-10, 10)):
     point, = ax.plot([], [], 'ro', label='aktualna pozycja')
     ax.legend()
 
-    # funkcja aktualizacji wywoływana co 50 ms przez główny wątek
+    plt.ion()            # tryb interaktywny
+    plt.show(block=False)
+
     def update(frame):
         while not data_queue.empty():
             x, y = data_queue.get()
             xdata.append(x)
             ydata.append(y)
-
         if len(xdata) > 0:
             line.set_data(xdata, ydata)
-            point.set_data([xdata[-1]], [ydata[-1]])  # <-- poprawka tutaj
+            point.set_data([xdata[-1]], [ydata[-1]])
         return line, point
 
-
-    ani = animation.FuncAnimation(fig, update, interval=50, blit=True)
-    plt.show()
-
-
-def add_point(x, y):
-    """
-    Wywołuj z innego wątku (np. z odbioru BT),
-    żeby przekazać nowe dane do wykresu.
-    """
-    data_queue.put((x, y))
+    ani = animation.FuncAnimation(fig, update, interval=50, blit=True, save_count=100)

@@ -1,7 +1,7 @@
 import struct
 import serial
 import time
-from position_plot import add_point
+from position_plot import data_queue
 def receive_frame(bt_serial):
     # Odczytaj 16 bajtów
     data = bt_serial.read(16)
@@ -11,6 +11,9 @@ def receive_frame(bt_serial):
     # Rozpakuj 4 int32 little-endian
     ints = struct.unpack('<4i', data)
     return ints
+
+def add_point(x, y):
+    data_queue.put((x, y))
 
 
 def print_received(bt_serial, running_flag):

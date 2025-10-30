@@ -5,10 +5,8 @@ from bt_receiver import print_received
 import threading
 from position_plot import init_plot
 
-
-
 # Konfiguracja portu Bluetooth
-BT_PORT = "COM9"   # zmień jeśli inny port
+BT_PORT = "COM9"
 BAUDRATE = 115200
 
 # Inicjalizacja połączenia Bluetooth
@@ -18,11 +16,15 @@ try:
 except serial.SerialException as e:
     print(f"❌ Błąd połączenia: {e}")
     exit(1)
+
+# Flaga wątku odbioru
 running_flag = threading.Event()
-running_flag.set()  # ustaw flagę, aby wątek działał
-receiver_thread = threading.Thread(target=print_received, args=(bt,running_flag))
-receiver_thread.daemon = True
+running_flag.set()
+
+# Uruchom odbiór BT w tle
+receiver_thread = threading.Thread(target=print_received, args=(bt,running_flag), daemon=True)
 receiver_thread.start()
+
 # Inicjalizacja pygame i joysticka
 pygame.init()
 pygame.joystick.init()
@@ -35,8 +37,7 @@ joystick = pygame.joystick.Joystick(0)
 joystick.init()
 print(f"🎮 Wykryto kontroler: {joystick.get_name()}")
 
-# Inicjalizacja wykresu
-threading.Thread(target=print_received, args=(bt, running_flag), daemon=True).start()
+# Inicjalizacja wykresu w trybie interaktywnym
 init_plot(x_range=(-1000, 1000), y_range=(-1000, 1000))
 
 # Konwersja osi joysticka na prędkość -250...250
@@ -46,11 +47,6 @@ def axis_to_speed(value, deadzone=0.15):
     return int(max(min(value * 250, 250), -250))
 
 def format_frame(left_speed, right_speed):
-    # Określenie bajtu znaków:
-    # 0 = obie dodatnie
-    # 1 = lewa ujemna
-    # 2 = prawa ujemna
-    # 3 = obie ujemne
     if left_speed < 0 and right_speed < 0:
         sign_byte = 3
     elif left_speed < 0:
@@ -59,22 +55,16 @@ def format_frame(left_speed, right_speed):
         sign_byte = 2
     else:
         sign_byte = 0
-
-    # Zamiana wartości na dodatnie (0–250)
     l_val = abs(left_speed)
     r_val = abs(right_speed)
-
-    # Ramka 3-bajtowa: [lewa prędkość, prawa prędkość, bajt znaków]
     frame = bytearray([l_val, r_val, sign_byte])
     return frame
+
 # Główna pętla
 try:
     while True:
         pygame.event.pump()
 
-        # W kontrolerze Xbox:
-        # oś 1 = lewa gałka Y (odwrócona: -1 = przód, 1 = tył)
-        # oś 4 = prawa gałka Y (odwrócona: -1 = przód, 1 = tył)
         axis_left_y = -joystick.get_axis(1)
         axis_right_y = -joystick.get_axis(3)
 
@@ -83,7 +73,6 @@ try:
 
         frame = format_frame(left_speed, right_speed)
 
-        #print(f"L: {left_speed:4}  R: {right_speed:4}  -> {frame.decode()}")
         bt.write(frame)
 
         time.sleep(0.02)
@@ -91,5 +80,6 @@ try:
 except KeyboardInterrupt:
     print("🛑 Zamykanie...")
 finally:
+    running_flag.clear()  # zatrzymaj wątek odbioru
     bt.close()
     pygame.quit()
