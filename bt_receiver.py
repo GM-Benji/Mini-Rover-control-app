@@ -1,7 +1,7 @@
 import struct
 import serial
 import time
-
+from position_plot import add_point
 def receive_frame(bt_serial):
     # Odczytaj 16 bajtów
     data = bt_serial.read(16)
@@ -19,6 +19,7 @@ def print_received(bt_serial, running_flag):
             data = bt_serial.read(16)
             if len(data) == 16:
                 frame = struct.unpack('<4i', data)
+                add_point(frame[0], frame[1])
                 print(f"Odebrane wartości: {frame}")
             else:
                 # Poczekaj chwilę lub obsłuż niepełną ramkę

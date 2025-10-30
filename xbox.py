@@ -3,6 +3,9 @@ import serial
 import time
 from bt_receiver import print_received
 import threading
+from position_plot import init_plot
+
+
 
 # Konfiguracja portu Bluetooth
 BT_PORT = "COM9"   # zmień jeśli inny port
@@ -31,6 +34,10 @@ if pygame.joystick.get_count() == 0:
 joystick = pygame.joystick.Joystick(0)
 joystick.init()
 print(f"🎮 Wykryto kontroler: {joystick.get_name()}")
+
+# Inicjalizacja wykresu
+threading.Thread(target=print_received, args=(bt, running_flag), daemon=True).start()
+init_plot(x_range=(-1000, 1000), y_range=(-1000, 1000))
 
 # Konwersja osi joysticka na prędkość -250...250
 def axis_to_speed(value, deadzone=0.15):
