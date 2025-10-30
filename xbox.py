@@ -1,6 +1,8 @@
 import pygame
 import serial
 import time
+from bt_receiver import print_received
+import threading
 
 # Konfiguracja portu Bluetooth
 BT_PORT = "COM9"   # zmień jeśli inny port
@@ -13,7 +15,11 @@ try:
 except serial.SerialException as e:
     print(f"❌ Błąd połączenia: {e}")
     exit(1)
-
+running_flag = threading.Event()
+running_flag.set()  # ustaw flagę, aby wątek działał
+receiver_thread = threading.Thread(target=print_received, args=(bt,running_flag))
+receiver_thread.daemon = True
+receiver_thread.start()
 # Inicjalizacja pygame i joysticka
 pygame.init()
 pygame.joystick.init()
@@ -70,7 +76,7 @@ try:
 
         frame = format_frame(left_speed, right_speed)
 
-        print(f"L: {left_speed:4}  R: {right_speed:4}  -> {frame.decode()}")
+        #print(f"L: {left_speed:4}  R: {right_speed:4}  -> {frame.decode()}")
         bt.write(frame)
 
         time.sleep(0.02)
