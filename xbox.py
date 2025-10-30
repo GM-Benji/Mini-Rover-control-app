@@ -70,7 +70,7 @@ try:
 
         frame = format_frame(left_speed, right_speed)
 
-        print(f"L: {left_speed:4}  R: {right_speed:4}  -> {frame.decode()}")
+        #print(f"L: {left_speed:4}  R: {right_speed:4}  -> {frame.decode()}")
         bt.write(frame)
 
         time.sleep(0.02)
