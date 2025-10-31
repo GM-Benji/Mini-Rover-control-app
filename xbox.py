@@ -1,15 +1,15 @@
 import pygame
 import serial
 import time
-from bt_receiver import print_received
 import threading
-from position_plot import init_plot
+from bt_receiver import print_received
+from position_plot import start_plot
 
 # Konfiguracja portu Bluetooth
 BT_PORT = "COM9"
 BAUDRATE = 115200
 
-# Inicjalizacja połączenia Bluetooth
+# Połączenie Bluetooth
 try:
     bt = serial.Serial(BT_PORT, BAUDRATE, timeout=1)
     print(f"✅ Połączono z HC-06 na {BT_PORT}")
@@ -21,26 +21,26 @@ except serial.SerialException as e:
 running_flag = threading.Event()
 running_flag.set()
 
-# Uruchom odbiór BT w tle
-receiver_thread = threading.Thread(target=print_received, args=(bt,running_flag), daemon=True)
+# Wątek odbioru BT
+receiver_thread = threading.Thread(target=print_received, args=(bt, running_flag), daemon=True)
 receiver_thread.start()
 
-# Inicjalizacja pygame i joysticka
+# Pygame i joystick
 pygame.init()
 pygame.joystick.init()
 
 if pygame.joystick.get_count() == 0:
-    print("❌ Brak wykrytego kontrolera Xbox! Upewnij się, że jest sparowany przez Bluetooth.")
+    print("❌ Brak wykrytego kontrolera Xbox!")
     exit(1)
 
 joystick = pygame.joystick.Joystick(0)
 joystick.init()
 print(f"🎮 Wykryto kontroler: {joystick.get_name()}")
 
-# Inicjalizacja wykresu w trybie interaktywnym
-init_plot(x_range=(-1000, 1000), y_range=(-1000, 1000))
+# Uruchomienie wątku wykresu
+start_plot(x_range=(-1000, 1000), y_range=(-1000, 1000))
 
-# Konwersja osi joysticka na prędkość -250...250
+# Konwersja osi joysticka na prędkość
 def axis_to_speed(value, deadzone=0.15):
     if abs(value) < deadzone:
         return 0
@@ -57,10 +57,9 @@ def format_frame(left_speed, right_speed):
         sign_byte = 0
     l_val = abs(left_speed)
     r_val = abs(right_speed)
-    frame = bytearray([l_val, r_val, sign_byte])
-    return frame
+    return bytearray([l_val, r_val, sign_byte])
 
-# Główna pętla
+# Główna pętla sterowania
 try:
     while True:
         pygame.event.pump()
@@ -72,7 +71,6 @@ try:
         right_speed = axis_to_speed(axis_right_y)
 
         frame = format_frame(left_speed, right_speed)
-
         bt.write(frame)
 
         time.sleep(0.02)
@@ -80,6 +78,6 @@ try:
 except KeyboardInterrupt:
     print("🛑 Zamykanie...")
 finally:
-    running_flag.clear()  # zatrzymaj wątek odbioru
+    running_flag.clear()  # zatrzymanie wątku odbioru
     bt.close()
     pygame.quit()
